@@ -19,7 +19,7 @@ set(CONNFW_ROOT "${CMAKE_SOURCE_DIR}/hex")
 find_program(NRFJPROG "nrfjprog")
 
 if(NOT NRFJPROG)
-    message(STATUS "nrfjprog not found, tests will not be ran.")
+    message(STATUS "nrfjprog not found, tests will not be run.")
 endif()
 
 set(BUILD_TYPE )
@@ -157,6 +157,7 @@ function(add_run_test_targets)
 
     # SDv5:
     #    S132: PCA10040
+    #    S132: PCA10056
 
     # SDv3:
     #    S132: PCA10040
@@ -232,6 +233,18 @@ function(add_run_test_targets)
                 "${SD_API_V3_S132_PCA10056_HEX}"
                 "${TEST_REPORTER}"
                 "${TESTS_SOFTDEVICE_V3}"
+            )
+        endif()
+
+        # SDv5
+        if(5 IN_LIST SD_API_VER_NUMS)
+            add_softdevice_test(
+                test_run_sdv5_s132_pca10056
+                "${BLE_DRIVER_TEST_PCA10056_A}"
+                "${BLE_DRIVER_TEST_PCA10056_B}"
+                "${SD_API_V5_S132_HEX}"
+                "${TEST_REPORTER}"
+                "${TESTS_SOFTDEVICE_V5}"
             )
         endif()
 
