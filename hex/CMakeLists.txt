@@ -10,17 +10,20 @@ include(../cmake/nrf-download-distfile.cmake)
 include(../cmake/nrf-apply-patches.cmake)
 include(./cmake/util.cmake)
 
-find_program(KEIL_UV4 "UV4" HINTS "C:/Keil_v5/UV4")
+# TODO: add hints for Linux and macOS
+find_program(MAKE "make")
 find_program(MERGEHEX "mergehex" HINTS "c:/Program Files (x86)/Nordic Semiconductor/nrf5x/bin")
 find_program(NRFUTIL "nrfutil")
 
-#message(STATUS "KEILUV4: ${KEIL_UV4}")
-#message(STATUS "MERGEHEX: ${MERGEHEX}")
-#message(STATUS "NRFUTIL: ${NRFUTIL}")
-
-if(NOT KEIL_UV4)
-    message(FATAL_ERROR "Keil UV4 not found, not able to compile connectivity firmware.")
+if(NOT DEFINED ENV{GCCARMEMB_TOOLCHAIN_PATH})
+    message(FATAL_ERROR "GNU Tools ARM Embedded environment variable GCCARMEMB_TOOLCHAIN_PATH not set. Stopping build.")
+else()
+    set(GCC_TOOLCHAIN_PATH "$ENV{GCCARMEMB_TOOLCHAIN_PATH}")
 endif()
+
+message(STATUS "GCC_TOOLCHAIN_PATH: ${GCC_TOOLCHAIN_PATH}")
+message(STATUS "MERGEHEX: ${MERGEHEX}")
+message(STATUS "NRFUTIL: ${NRFUTIL}")
 
 if(NOT MERGEHEX)
     message(FATAL_ERROR "mergehex not found, not able to merge connectivity firmware with SoftDevice.")
@@ -28,13 +31,6 @@ endif()
 
 if(NOT NRFUTIL)
     message(FATAL_ERROR "nrfutil not found, not able to create DFU packages of connectivity firmware.")
-endif()
-
-
-if(KEIL_UV4)
-    # File counter used for linking the different versions of SDKs to 
-    # directories with shorter name
-    set(TEMP_FILE_COUNTER 0)
 endif()
 
 function(nrf_get_hex_paths SDK_ROOT SDK_VERSION PROJECT_PATH APP_HEX_PATH SOFTDEVICE_HEX_PATH)
@@ -57,41 +53,25 @@ function(nrf_get_hex_paths SDK_ROOT SDK_VERSION PROJECT_PATH APP_HEX_PATH SOFTDE
     set(SOFTDEVICE_HEX_PATH "${FOUND_SOFTDEVICE_HEX}" PARENT_SCOPE)
 
     if(${PCA_TYPE} STREQUAL "pca10028" OR ${PCA_TYPE} STREQUAL "pca10031")
-        if(KEIL_UV4)
-            if("${SDK_VERSION}" STREQUAL "11")
-                set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf51422_xxac_s130.hex" PARENT_SCOPE)
-            else()
-                message(STATUS "${PCA_TYPE} is not supported in SDK ${SDK_VERSION}")
-            endif()
+        if(SDK_VERSION EQUAL 11)
+            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf51422_xxac_s130.hex" PARENT_SCOPE)
         else()
-            message(STATUS "Not able to determine app hex path for PCA10027 or PCA10031.")
+            message(STATUS "${PCA_TYPE} is not supported in SDK ${SDK_VERSION}")
         endif()
     elseif(${PCA_TYPE} STREQUAL "pca10036")
-        if(KEIL_UV4)
-            if(${SDK_VERSION} STREQUAL "11")
-                set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa_s132.hex" PARENT_SCOPE)
-            else()
-                message(STATUS "${PCA_TYPE} is not supported in SDK ${SDK_VERSION}")
-            endif()
+        if(SDK_VERSION EQUAL 11)
+            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa_s132.hex" PARENT_SCOPE)
         else()
-            message(STATUS "Not able to determine app hex path for PCA10036.")
+            message(STATUS "${PCA_TYPE} is not supported in SDK ${SDK_VERSION}")
         endif()
     elseif(${PCA_TYPE} STREQUAL "pca10040")
-        if(KEIL_UV4)
-            if(${SDK_VERSION} STREQUAL "11")
-                set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa_s132.hex" PARENT_SCOPE)
-            else()
-            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa.hex" PARENT_SCOPE)
-            endif()
+        if(SDK_VERSION EQUAL 11)
+            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa_s132.hex" PARENT_SCOPE)
         else()
-            message(STATUS "Not able to determine app hex path for PCA10040.")
+            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52832_xxaa.hex" PARENT_SCOPE)
         endif()
     elseif(${PCA_TYPE} STREQUAL "pca10056" OR ${PCA_TYPE} STREQUAL "pca10059")
-        if(KEIL_UV4)
-            set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52840_xxaa.hex" PARENT_SCOPE)
-        else()
-            message(STATUS "Not able to determine app hex path for PCA10059 or PCA10056.")
-        endif()
+        set(APP_HEX_PATH "${PROJECT_PATH}/_build/nrf52840_xxaa.hex" PARENT_SCOPE)
     else()
         message(STATUS "Not able to determine app hex path.")
     endif()
@@ -123,37 +103,19 @@ function(nrf_create_connectivity_compile_targets)
     endif()
 
     set(SDK_ROOT "${nrf_create_connectivity_compile_targets_SDK_ROOT}")
-    #message(STATUS "SDK_ROOT:" ${SDK_ROOT})
+    message(STATUS "SDK_ROOT:" ${SDK_ROOT})
     set(SDK_VERSION ${nrf_create_connectivity_compile_targets_SDK_VERSION})
     set(VERSION ${nrf_create_connectivity_compile_targets_VERSION})
 
-    if(KEIL_UV4)
-        set(KEIL_HACK "$ENV{TMP}/${TEMP_FILE_COUNTER}")
-        math(EXPR TEMP_FILE_COUNTER "${TEMP_FILE_COUNTER} + 1")
-        set(TEMP_FILE_COUNTER "${TEMP_FILE_COUNTER}" PARENT_SCOPE)
-
-        message(STATUS "Keil UV4 has issues with long paths, creating a link to the SDK from ${KEIL_HACK}")
-
-        file(TO_NATIVE_PATH ${KEIL_HACK} KEIL_HACK_N)
-        file(TO_NATIVE_PATH ${SDK_ROOT} SDK_ROOT_N)
-
-        if(EXISTS "${KEIL_HACK}")
-            message(STATUS "Removing old link")
-            execute_process(COMMAND "cmd.exe" "/C" "rmdir" "${KEIL_HACK_N}")
-        endif()
-        execute_process(COMMAND "cmd.exe" "/C" "mklink" "/D" "${KEIL_HACK_N}" "${SDK_ROOT_N}")
-        set(SDK_ROOT ${KEIL_HACK})
-    endif()
-
     set(PROJECT_FULL_PATH "${SDK_ROOT}/${nrf_create_connectivity_compile_targets_PROJECT_DIRECTORY}")
-    #message(STATUS "Searching for projects within project ${PROJECT_FULL_PATH}")
+    message(STATUS "Searching for projects within project ${PROJECT_FULL_PATH}")
     file(GLOB FOUND_PCA_PATHS "${PROJECT_FULL_PATH}/pca100[1-9][0-9]")
 
     set(BUILD_TARGETS)
 
     foreach(PCA_PATH ${FOUND_PCA_PATHS})
         file(GLOB FOUND_PROJECTS "${PCA_PATH}/*_hci")
-        #message(STATUS "Found projects: ${FOUND_PROJECTS}")
+        message(STATUS "Found projects: ${FOUND_PROJECTS}")
 
         foreach(PROJECT ${FOUND_PROJECTS})
             set(PROJECT_NAME)
@@ -164,7 +126,7 @@ function(nrf_create_connectivity_compile_targets)
             set(TRANSPORTS)
 
             if(PROJECT_NAME)
-                #message(STATUS "PROJECT_NAME:${PROJECT_NAME} PCA_TYPE:${PCA_TYPE} SD_TV: ${SOFTDEVICE_TYPE_VERSION} TRANSPORT:${TRANSPORT}")
+                message(STATUS "PROJECT_NAME:${PROJECT_NAME} PCA_TYPE:${PCA_TYPE} SD_TV: ${SOFTDEVICE_TYPE_VERSION} TRANSPORT:${TRANSPORT}")
 
                 if(TRANSPORT STREQUAL "usb")
                     list(APPEND TRANSPORTS "usb")
@@ -176,29 +138,15 @@ function(nrf_create_connectivity_compile_targets)
                 endif()
 
                 foreach(TRANSPORT ${TRANSPORTS})
-                    if(KEIL_UV4)
-                        set(KEIL_PROJECT_DIRECTORY "${PROJECT}/arm5_no_packs")
-                        file(GLOB FOUND_UV4_PROJECTS "${KEIL_PROJECT_DIRECTORY}/*.uvprojx")
+                    set(MAKEFILE_DIRECTORY "${PROJECT}/armgcc")
 
-                        if(FOUND_UV4_PROJECTS)
-                            list(LENGTH "${FOUND_UV4_PROJECTS}" UV4_PROJECT_COUNT)
-
-                            if(${UV4_PROJECT_COUNT} LESS_EQUAL 1)
-                                if(${UV4_PROJECT_COUNT} EQUAL 1)
-                                    list(${FOUND_UV4_PROJECTS} 0 UV4_PROJECT)
-                                else()
-                                    set(UV4_PROJECT "${FOUND_UV4_PROJECTS}")
-                                endif()
-                            else()
-                                message(STATUS "Found ${UV4_PROJECT_COUNT} projects. Not supported.")
-                                return()
-                            endif()
-                        endif()
-
+                    if(EXISTS "${MAKEFILE_DIRECTORY}/Makefile")
+                        set(MAKEFILE_PROJECT "${MAKEFILE_DIRECTORY}/Makefile")
+                        message(STATUS "MAKEFILE_DIRECTORY: ${MAKEFILE_DIRECTORY} MAKEFILE_PROJECT: ${MAKEFILE_PROJECT}")
                         set(SOFTDEVICE_HEX_PATH)
                         set(APP_HEX_PATH)
-                        nrf_get_hex_paths("${SDK_ROOT}" "${SDK_VERSION}" "${KEIL_PROJECT_DIRECTORY}" APP_HEX_PATH SOFTDEVICE_HEX_PATH)
-                        #message(STATUS "APP_HEX_PATH: ${APP_HEX_PATH} SOFTDEVICE_HEX_PATH: ${SOFTDEVICE_HEX_PATH}")
+                        nrf_get_hex_paths("${SDK_ROOT}" "${SDK_VERSION}" "${MAKEFILE_DIRECTORY}" APP_HEX_PATH SOFTDEVICE_HEX_PATH)
+                        message(STATUS "APP_HEX_PATH: ${APP_HEX_PATH} SOFTDEVICE_HEX_PATH: ${SOFTDEVICE_HEX_PATH}")
 
                         set(SD_VERSION)
                         set(SOC_FAMILY)
@@ -215,15 +163,13 @@ function(nrf_create_connectivity_compile_targets)
                             message(STATUS "Target ${TARGET_NAME} already exists.")
                         else()
                             set(COMMAND_NAME "${TARGET_NAME}_cmd")
-                            set(KEIL_PROJECT_FULL_PATH "${UV4_PROJECT}")
-                            set(KEIL_LOGFILE "${KEIL_PROJECT_DIRECTORY}/${TARGET_NAME}-build.txt")
 
                             set(SER_CONFIG_PATH)
                             set(MAIN_PATH)
                             nrf_configure_sdk_affected_files(${SDK_VERSION} ${SDK_ROOT} SER_CONFIG_PATH MAIN_PATH)
 
                             set(SER_CONFIG_IN_PATH "${SER_CONFIG_PATH}.in")
-                            if(NOT EXISTS ${SER_CONFIG_IN_PATH})
+                            if(NOT EXISTS "${SER_CONFIG_IN_PATH}")
                                 message(FATAL_ERROR "ser_config.h.in not found. The SDK needs to be prepared. Please delete the build folder and try again.")
                             endif()
 
@@ -236,6 +182,7 @@ function(nrf_create_connectivity_compile_targets)
                             add_custom_command(
                                 OUTPUT "${COMMAND_NAME}"
                                 COMMAND ${CMAKE_COMMAND} -DSDK_VERSION=${SDK_VERSION} -DSER_CONFIG_IN_PATH=${SER_CONFIG_IN_PATH} -DBAUD_RATE=${TRANSPORT} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/build_cmd_ser_config.cmake
+                                WORKING_DIRECTORY ${MAKEFILE_DIRECTORY}
                             )
 
                             # Setup main.c
@@ -247,8 +194,7 @@ function(nrf_create_connectivity_compile_targets)
                             # Compile project
                             add_custom_command(
                                 OUTPUT "${COMMAND_NAME}"
-                                APPEND COMMAND ${KEIL_UV4} -b ${KEIL_PROJECT_FULL_PATH} -j0 -o ${KEIL_LOGFILE}
-                                WORKING_DIRECTORY ${KEIL_PROJECT_DIRECTORY}
+                                APPEND COMMAND ${MAKE}
                             )
 
                             set(HEX_MERGED "${TARGET_NAME}.hex")
