@@ -6,7 +6,7 @@ function(nrf_apply_patches)
     foreach(PATCH ${nrf_apply_patches_PATCHES})
         message(STATUS "Applying patch ${PATCH}")
         execute_process(
-            COMMAND "${GIT}" apply "${PATCH}" --ignore-whitespace --whitespace=nowarn --unsafe-paths
+            COMMAND "${GIT}" --git-dir=${nrf_apply_patches_SOURCE_PATH} apply "${PATCH}" --ignore-whitespace --whitespace=nowarn --unsafe-paths
             WORKING_DIRECTORY ${nrf_apply_patches_SOURCE_PATH}
             RESULT_VARIABLE error_code
         )
