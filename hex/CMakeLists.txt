@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(connectivity)
 
 #[[
-    This CMake file uses directory structure conventions in the SDKs 
+    This CMake file uses directory structure conventions in the SDKs
     supported (v11 and v15) to supply information to targets and create them.
 ]]
 
@@ -42,6 +42,11 @@ function(nrf_get_hex_paths SDK_ROOT SDK_VERSION PROJECT_PATH APP_HEX_PATH SOFTDE
     nrf_extract_info_from_path(${PROJECT_PATH} PROJECT_NAME PCA_TYPE SOFTDEVICE_TYPE_VERSION TRANSPORT)
     set(SOFTDEVICE_SEARCH_PATH "${SDK_ROOT}/components/softdevice/${SOFTDEVICE_TYPE_VERSION}/hex/*.hex")
     file(GLOB FOUND_SOFTDEVICE_HEX "${SOFTDEVICE_SEARCH_PATH}")
+    if(FOUND_SOFTDEVICE_HEX STREQUAL "")
+        message(FATAL_ERROR "No SoftDevice found for project ${PROJECT_PATH}")
+    endif()
+
+    #message(STATUS "SDK_ROOT: ${SDK_ROOT} SOFTDEVICE_SEARCH_PATH:${SOFTDEVICE_SEARCH_PATH} FOUND_SOFTDEVICE_HEX:${FOUND_SOFTDEVICE_HEX}")
 
     set(ALTERNATIVE_SOFTDEVICE_HEX)
     nrf_find_alternative_softdevice(${FOUND_SOFTDEVICE_HEX} ALTERNATIVE_SOFTDEVICE_HEX)
@@ -126,7 +131,7 @@ function(nrf_create_connectivity_compile_targets)
             set(TRANSPORTS)
 
             if(PROJECT_NAME)
-                message(STATUS "PROJECT_NAME:${PROJECT_NAME} PCA_TYPE:${PCA_TYPE} SD_TV: ${SOFTDEVICE_TYPE_VERSION} TRANSPORT:${TRANSPORT}")
+                #message(STATUS "PROJECT_NAME:${PROJECT_NAME} PCA_TYPE:${PCA_TYPE} SD_TV: ${SOFTDEVICE_TYPE_VERSION} TRANSPORT:${TRANSPORT}")
 
                 if(TRANSPORT STREQUAL "usb")
                     list(APPEND TRANSPORTS "usb")
@@ -142,11 +147,11 @@ function(nrf_create_connectivity_compile_targets)
 
                     if(EXISTS "${MAKEFILE_DIRECTORY}/Makefile")
                         set(MAKEFILE_PROJECT "${MAKEFILE_DIRECTORY}/Makefile")
-                        message(STATUS "MAKEFILE_DIRECTORY: ${MAKEFILE_DIRECTORY} MAKEFILE_PROJECT: ${MAKEFILE_PROJECT}")
+                        #message(STATUS "MAKEFILE_DIRECTORY: ${MAKEFILE_DIRECTORY} MAKEFILE_PROJECT: ${MAKEFILE_PROJECT}")
                         set(SOFTDEVICE_HEX_PATH)
                         set(APP_HEX_PATH)
                         nrf_get_hex_paths("${SDK_ROOT}" "${SDK_VERSION}" "${MAKEFILE_DIRECTORY}" APP_HEX_PATH SOFTDEVICE_HEX_PATH)
-                        message(STATUS "APP_HEX_PATH: ${APP_HEX_PATH} SOFTDEVICE_HEX_PATH: ${SOFTDEVICE_HEX_PATH}")
+                        #message(STATUS "APP_HEX_PATH: ${APP_HEX_PATH} SOFTDEVICE_HEX_PATH: ${SOFTDEVICE_HEX_PATH}")
 
                         set(SD_VERSION)
                         set(SOC_FAMILY)
