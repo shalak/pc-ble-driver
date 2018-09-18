@@ -175,12 +175,12 @@ function(nrf_create_connectivity_compile_targets)
 
                             set(SER_CONFIG_IN_PATH "${SER_CONFIG_PATH}.in")
                             if(NOT EXISTS "${SER_CONFIG_IN_PATH}")
-                                message(FATAL_ERROR "ser_config.h.in not found. The SDK needs to be prepared. Please delete the build folder and try again.")
+                                message(FATAL_ERROR "ser_config.h.in not found. The SDK needs to be prepared. Please delete the SDK folder and try again (${SDK_ROOT}).")
                             endif()
 
                             set(MAIN_IN_PATH "${MAIN_PATH}.in")
                             if(NOT EXISTS ${MAIN_IN_PATH})
-                                message(FATAL_ERROR "main.c.in not found. The SDK needs to be prepared. Please delete the build folder and try again.")
+                                message(FATAL_ERROR "main.c.in not found. The SDK needs to be prepared. Please delete the SDK folder and try again (${SDK_ROOT}).")
                             endif()
 
                             # Setup ser_config.h
