@@ -57,12 +57,23 @@ function(nrf_configure_sdk_values SDK_VERSION SDK_DIRECTORY)
     file(WRITE "${MAIN_PATH}.in" "${MAIN_IN}")
 
     # Configure armgcc related files (if armgcc is available)
-    if(DEFINED ENV{GCCARMEMB_TOOLCHAIN_PATH})
+    find_program(GCC "arm-none-eabi-gcc")
+
+    if(DEFINED ENV{GCCARMEMB_TOOLCHAIN_PATH} OR GCC)
         # Get gcc version
-        set(GCC_TOOLCHAIN_PATH "$ENV{GCCARMEMB_TOOLCHAIN_PATH}")
-        string(REPLACE "\"" "" GCC_TOOLCHAIN_PATH "${GCC_TOOLCHAIN_PATH}")
+        if(GCC)
+            get_filename_component(GCC_TOOLCHAIN_PATH "${GCC}" DIRECTORY)
+            set(GCC_TOOLCHAIN_PATH "${GCC_TOOLCHAIN_PATH}/..")
+        else()
+            set(GCC_TOOLCHAIN_PATH "$ENV{GCCARMEMB_TOOLCHAIN_PATH}")
+            # Environment variables are quoted, remove the quote
+            string(REPLACE "\"" "" GCC_TOOLCHAIN_PATH "${GCC_TOOLCHAIN_PATH}")
+        endif()
+
         file(TO_CMAKE_PATH "${GCC_TOOLCHAIN_PATH}" GCC_TOOLCHAIN_PATH)
         set(GCC "${GCC_TOOLCHAIN_PATH}/bin/arm-none-eabi-gcc")
+
+        message(STATUS "Found armgcc in path ${GCC}.")
 
         execute_process(
             COMMAND "${GCC}" -dumpversion
@@ -113,16 +124,16 @@ function(nrf_configure_sdk_values SDK_VERSION SDK_DIRECTORY)
                 set(MAKEFILE_CONTENT_NEW)
 
                 foreach(LINE ${MAKEFILE_LINES})
-                    message(STATUS "L:${LINE}")
+                    #message(STATUS "L:${LINE}")
                     string(REGEX REPLACE "^(GNU_INSTALL_ROOT [\\?:]= ).*$" "\\1${GCC_TOOLCHAIN_PATH}" MAKEFILE_LINE "${LINE}")
                     string(REGEX REPLACE "^(GNU_VERSION [\\?:]= ).*$" "\\1${GCC_VERSION}" MAKEFILE_LINE "${MAKEFILE_LINE}")
-                    message(STATUS "M:${MAKEFILE_LINE}")
+                    #message(STATUS "M:${MAKEFILE_LINE}")
                     string(APPEND MAKEFILE_CONTENT_NEW "${MAKEFILE_LINE}\n")
                 endforeach()
 
                 set(MAKEFILE_CONTENT "${MAKEFILE_CONTENT_NEW}")
                 file(WRITE "${MAKEFILE}" "${MAKEFILE_CONTENT}")
-                message(STATUS "Makefile content after change: ${MAKEFILE_CONTENT}")
+                #message(STATUS "Makefile content after change: ${MAKEFILE_CONTENT}")
             endif()
         endif()
     endif()
@@ -157,8 +168,14 @@ function(nrf_prepare_sdk)
     #message(STATUS "FILENAME: ${nrf_prepare_sdk_FILENAME}")
     #message(STATUS "SHA512: ${nrf_prepare_sdk_SHA512}")
 
-    set(SDK_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/sdks/v${nrf_prepare_sdk_SDK_VERSION}")
-    SET(SDK_VERSION "${nrf_prepare_sdk_SDK_VERSION}")
+    if(NOT DEFINED ENV{TMP})
+        message(FATAL_ERROR "Temporary directory not set, not able to proceed.")
+    endif()
+
+    set(SDKS_DIRECTORY "$ENV{TMP}/pc-ble-driver/sdks")
+    file(TO_CMAKE_PATH "${SDKS_DIRECTORY}" SDKS_DIRECTORY)
+    set(SDK_DIRECTORY "${SDKS_DIRECTORY}/v${nrf_prepare_sdk_SDK_VERSION}")
+    set(SDK_VERSION "${nrf_prepare_sdk_SDK_VERSION}")
 
     set(SDK_SETUP_SUCCESS_FILE "${SDK_DIRECTORY}/.sdk-setup-success")
 
@@ -168,7 +185,7 @@ function(nrf_prepare_sdk)
         nrf_download_distfile(
             SDK
             URLS ${nrf_prepare_sdk_URLS}
-            DOWNLOAD_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/sdks"
+            DOWNLOAD_DIRECTORY "${SDKS_DIRECTORY}"
             FILENAME "${nrf_prepare_sdk_FILENAME}"
             SHA512 ${nrf_prepare_sdk_SHA512}
         )
@@ -192,6 +209,8 @@ function(nrf_prepare_sdk)
                 "${SDK_VERSION}"
                 "${SDK_DIRECTORY}"
             )
+        else()
+            message(STATUS "No patches to apply to public SDK.")
         endif()
 
         file(WRITE "${SDK_SETUP_SUCCESS_FILE}" "Successfully setup SDK.")
@@ -321,6 +340,7 @@ function(nrf_find_alternative_softdevice SOFTDEVICE_HEX_PATH ALTERNATIVE_SOFTDEV
     set(SOC_FAMILY)
     set(SOC_SD_API_VERSION)
     set(SD_ID)
+
     nrf_extract_softdevice_info(${FOUND_SOFTDEVICE_HEX} SD_VERSION SOC_FAMILY SD_API_VERSION SD_ID)
     #message(STATUS "SD_VERSION:${SD_VERSION} SOC_FAMILY:${SD_VERSION} SD_API_VERSION:${SD_API_VERSION} SD_ID:${SD_ID}")
 
