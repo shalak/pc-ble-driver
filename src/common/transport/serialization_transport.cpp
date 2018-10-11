@@ -44,6 +44,7 @@
 #include "ble_common.h"
 
 #include <cstring> // Do not remove! Required by gcc.
+#include <iterator>
 #include <memory>
 #include <sstream>
 
